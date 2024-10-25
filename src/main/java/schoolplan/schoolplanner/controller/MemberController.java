@@ -26,18 +26,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/members")
 @RequiredArgsConstructor
-@Tag(name = "Member Controller", description = "회원 관리 API")
+@Tag(name = "Member Controller", description = "회원 정보 관리")
 public class MemberController {
 
     private final MemberService memberService;
     private final JwtUtil jwtUtil;
-
 
     @GetMapping("/profileImage/{id}")
     @Operation(summary = "프로필 이미지 가져오기", description = "회원 ID를 입력받아 해당 회원의 프로필 이미지를 반환합니다.")
@@ -89,15 +87,6 @@ public class MemberController {
         }
     }
 
-    @PostMapping("/logout")
-    @Operation(summary = "로그아웃", description = "현재 세션을 무효화하여 로그아웃을 처리합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "로그아웃 성공")
-    })
-    public void logout() {
-        // No need to handle logout on the server side with JWT
-    }
-
     @GetMapping("/info")
     @Operation(summary = "회원 정보 조회", description = "현재 로그인된 회원의 정보를 반환합니다.")
     @ApiResponses(value = {
@@ -105,7 +94,7 @@ public class MemberController {
             @ApiResponse(responseCode = "401", description = "로그인되지 않음"),
             @ApiResponse(responseCode = "404", description = "회원 정보 없음")
     })
-    public ResponseEntity<Member> getMemberInfo(HttpServletRequest request) {
+    public ResponseEntity<Optional<Member>> getMemberInfo(HttpServletRequest request) {
         String authorizationHeader = request.getHeader("Authorization");
 
         // Authorization 헤더가 없는 경우 예외 처리
@@ -116,7 +105,7 @@ public class MemberController {
         String token = authorizationHeader.substring(7); // "Bearer " 이후의 토큰 추출
         String loginId = jwtUtil.extractUsername(token);
 
-        Member member = memberService.findOne(loginId);
+        Optional<Member> member = memberService.findOne(loginId);
         if (member != null) {
             return ResponseEntity.ok().body(member);
         } else {
@@ -124,42 +113,33 @@ public class MemberController {
         }
     }
 
-
-
+    // 회원 정보 수정 (JSON 요청 처리)
     @PostMapping("/update")
     @Operation(summary = "회원 정보 수정", description = "회원 정보를 수정하고 프로필 이미지를 업데이트합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "수정 성공"),
             @ApiResponse(responseCode = "400", description = "수정 실패", content = @Content(schema = @Schema(implementation = String.class)))
     })
-    public String update(
-            @Parameter(description = "비밀번호", required = true) @RequestParam("pw") String pw,
-            @Parameter(description = "이름", required = true) @RequestParam("name") String name,
-            @Parameter(description = "이메일", required = true) @RequestParam("email") String email,
-            @Parameter(description = "주소", required = true) @RequestParam("address") String address,
-            @Parameter(description = "성별", required = true) @RequestParam("gender") String gender,
-            @Parameter(description = "운동 유형", required = true) @RequestParam("exerciseType") String exerciseType,
-            @Parameter(description = "트레이너 여부", required = true) @RequestParam("isTrainer") boolean isTrainer,
+    public ResponseEntity<String> update(
+            @RequestBody UpdateRequest updateRequest,
             HttpServletRequest request) {
         String token = request.getHeader("Authorization").substring(7);
         String loginId = jwtUtil.extractUsername(token);
-        memberService.update(new Member(loginId, pw, name, email, address, gender));
-        return "수정 성공!";
+
+        memberService.update(new Member(loginId, updateRequest.getPw(), updateRequest.getName(),
+                updateRequest.getEmail(), updateRequest.getAddress(), updateRequest.getGender()));
+
+        return ResponseEntity.ok("수정 성공!");
     }
 
-//    @Setter
-//    @Getter
-//    class MemberInfo {
-//        private String id;
-//        private String name;
-//        private String exerciseType;
-//        private String gender;
-//
-//        public MemberInfo(String id, String name, String exerciseType, String gender) {
-//            this.id = id;
-//            this.name = name;
-//            this.exerciseType = exerciseType;
-//            this.gender = gender;
-//        }
-//    }
+    @Getter
+    @Setter
+    public static class UpdateRequest {
+        private String pw;
+        private String name;
+        private String email;
+        private String address;
+        private String gender;
+
+    }
 }
