@@ -127,7 +127,7 @@ public class MemberController {
         String loginId = jwtUtil.extractUsername(token);
 
         memberService.update(new Member(loginId, updateRequest.getPw(), updateRequest.getName(),
-                updateRequest.getEmail(), updateRequest.getAddress(), updateRequest.getGender()));
+                updateRequest.getEmail(), updateRequest.getAddress(), updateRequest.getGender(), updateRequest.getTendency()));
 
         return ResponseEntity.ok("수정 성공!");
     }
@@ -140,6 +140,6 @@ public class MemberController {
         private String email;
         private String address;
         private String gender;
-
+        private int tendency;
     }
 }

@@ -37,7 +37,7 @@ public class AuthController {
     private MemberService memberService;
 
     @PostMapping("/signup")
-    @Operation(summary = "회원가입", description = "회원 정보를 JSON 형식으로 입력받아 회원가입을 처리합니다.")
+    @Operation(summary = "회원가입", description = "회원 정보를 JSON 형식으로 입력받아 회원가입을 처리합니다.(성향 0:안정형, 1:밸런스, 2:도전형 )")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "회원가입 성공"),
             @ApiResponse(responseCode = "400", description = "중복된 회원", content = @Content(schema = @Schema(implementation = String.class)))
@@ -45,7 +45,7 @@ public class AuthController {
     @Transactional
     public ResponseEntity<String> signup(@RequestBody SignupRequest signupRequest) {
         Member newMember = new Member(signupRequest.getId(), signupRequest.getPw(), signupRequest.getName(),
-                signupRequest.getEmail(), signupRequest.getAddress(), signupRequest.getGender());
+                signupRequest.getEmail(), signupRequest.getAddress(), signupRequest.getGender(), signupRequest.getTendency());
         String result = loginService.signUp(newMember);
         if ("회원가입 성공!".equals(result)) {
             return ResponseEntity.ok(result);
@@ -64,6 +64,7 @@ public class AuthController {
         private String email;
         private String address;
         private String gender;
+        private int tendency;
     }
 
     @PostMapping("/login")

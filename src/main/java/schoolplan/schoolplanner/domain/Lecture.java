@@ -80,4 +80,10 @@ public class Lecture {
 
     @Column(name = "evaluation_method")
     private String evaluationMethod;  // 평가 방법 (MRKS_EVL_MTHD_NM)
+
+
+    private String rating; // 과목 평점 (0~5)
+    private String difficulty; // 과목 난이도 (0~5)
+    private String learning_amount; // 학습유용도 (0~5)
+
 }

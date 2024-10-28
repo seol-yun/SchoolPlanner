@@ -17,13 +17,14 @@ import schoolplan.schoolplanner.domain.LectureEnrollment;
 import schoolplan.schoolplanner.domain.Member;
 import schoolplan.schoolplanner.dto.EnrollmentRequestDto;
 import schoolplan.schoolplanner.dto.LectureEnrollmentDto;
+import schoolplan.schoolplanner.dto.LectureEnrollmentIdRequestDto;
+import schoolplan.schoolplanner.dto.LectureIdRequestDto;
 import schoolplan.schoolplanner.repository.LectureEnrollmentRepository;
 import schoolplan.schoolplanner.repository.LectureRepository;
 import schoolplan.schoolplanner.repository.MemberRepository;
 import schoolplan.schoolplanner.service.LectureService;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 @RestController
 @RequestMapping("/api/lectures")
@@ -138,6 +139,64 @@ public class LectureController {
     }
 
 
+    @DeleteMapping("/deleteEnrollment")
+    @Operation(summary = "수강신청 삭제", description = "수강신청을 취소합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "수강신청이 성공적으로 취소되었습니다."),
+            @ApiResponse(responseCode = "401", description = "인증 실패: 유효하지 않은 토큰"),
+            @ApiResponse(responseCode = "404", description = "해당 수강신청을 찾을 수 없습니다."),
+            @ApiResponse(responseCode = "500", description = "수강신청 삭제 중 오류 발생")
+    })
+    public ResponseEntity<String> deleteEnrollment(
+            @RequestBody LectureEnrollmentIdRequestDto requestDto, // DTO에서 enrollmentId 받기
+            HttpServletRequest request) {
+        try {
+            String memberId = getMemberIdFromJwt(request);
+            if (memberId == null) {
+                return ResponseEntity.status(401).body("인증 실패: 유효하지 않은 토큰");
+            }
+
+            Long enrollmentId = requestDto.getEnrollmentId(); // DTO에서 enrollmentId 추출
+            Optional<LectureEnrollment> enrollmentOpt = lectureEnrollmentRepository.findById(enrollmentId);
+            if (!enrollmentOpt.isPresent()) {
+                return ResponseEntity.status(404).body("해당 수강신청을 찾을 수 없습니다.");
+            }
+
+            LectureEnrollment enrollment = enrollmentOpt.get();
+            if (!enrollment.getMember().getId().equals(memberId)) {
+                return ResponseEntity.status(401).body("본인의 수강신청만 취소할 수 있습니다.");
+            }
+
+            lectureEnrollmentRepository.delete(enrollment);
+            return ResponseEntity.ok("수강신청이 성공적으로 취소되었습니다.");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("수강신청 삭제 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/getLectureInfo")
+    @Operation(summary = "강의 정보 조회", description = "강의 ID를 기반으로 해당 강의의 상세 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "강의 정보 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
+            @ApiResponse(responseCode = "404", description = "해당 강의를 찾을 수 없습니다."),
+            @ApiResponse(responseCode = "500", description = "강의 정보 조회 중 오류 발생")
+    })
+    public ResponseEntity<?> getLectureInfo(
+            @RequestBody LectureIdRequestDto lectureIdRequestDto) { // JSON 요청에서 lectureId 받기
+        try {
+            String lectureId = lectureIdRequestDto.getLectureId(); // JSON에서 lectureId 추출
+            Optional<Lecture> lectureOpt = lectureRepository.findById(lectureId);
+            if (!lectureOpt.isPresent()) {
+                return ResponseEntity.status(404).body("해당 강의를 찾을 수 없습니다.");
+            }
+
+            Lecture lecture = lectureOpt.get();
+            return ResponseEntity.ok(lecture); // 조회된 강의 정보 반환
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("강의 정보 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
 
 
     /**
@@ -161,77 +220,4 @@ public class LectureController {
         }
         return null;
     }
-
-
-//
-//    @Operation(summary = "모든 강의 조회", description = "모든 Lecture의 목록을 반환합니다.")
-//    @ApiResponses(value = {
-//            @ApiResponse(responseCode = "200", description = "강의 목록 반환", content = @Content(schema = @Schema(implementation = Lecture.class))),
-//            @ApiResponse(responseCode = "500", description = "서버 오류")
-//    })
-//    @GetMapping
-//    public List<Lecture> getAllLectures() {
-//        return lectureRepository.findAll();
-//    }
-//
-//    @Operation(summary = "특정 강의 조회", description = "특정 Lecture의 정보를 ID로 조회합니다.")
-//    @ApiResponses(value = {
-//            @ApiResponse(responseCode = "200", description = "강의 정보 반환", content = @Content(schema = @Schema(implementation = Lecture.class))),
-//            @ApiResponse(responseCode = "404", description = "강의를 찾을 수 없음")
-//    })
-//    @GetMapping("/{id}")
-//    public ResponseEntity<Lecture> getLectureById(@PathVariable String id) {
-//        Optional<Lecture> lecture = lectureRepository.findById(id);
-//        if (lecture.isPresent()) {
-//            return ResponseEntity.ok(lecture.get());
-//        } else {
-//            return ResponseEntity.notFound().build();
-//        }
-//    }
-//
-//    @Operation(summary = "새 강의 생성", description = "새로운 Lecture를 생성합니다.")
-//    @ApiResponses(value = {
-//            @ApiResponse(responseCode = "201", description = "강의 생성 성공", content = @Content(schema = @Schema(implementation = Lecture.class))),
-//            @ApiResponse(responseCode = "400", description = "잘못된 요청")
-//    })
-//    @PostMapping
-//    public String createLecture(@RequestBody Lecture lecture) {
-//        return lectureRepository.save(lecture);
-//    }
-//
-//    @Operation(summary = "강의 업데이트", description = "특정 Lecture의 정보를 업데이트합니다.")
-//    @ApiResponses(value = {
-//            @ApiResponse(responseCode = "200", description = "강의 정보 업데이트 성공", content = @Content(schema = @Schema(implementation = Lecture.class))),
-//            @ApiResponse(responseCode = "404", description = "강의를 찾을 수 없음")
-//    })
-//    @PutMapping("/{id}")
-//    public ResponseEntity<String> updateLecture(@PathVariable String id, @RequestBody Lecture lectureDetails) {
-//        Optional<Lecture> lecture = lectureRepository.findById(id);
-//        if (lecture.isPresent()) {
-//            Lecture updatedLecture = lecture.get();
-//            updatedLecture.setName(lectureDetails.getName());
-//            updatedLecture.setOpenYear(lectureDetails.getOpenYear());
-//            updatedLecture.setProfessor(lectureDetails.getProfessor());
-//            updatedLecture.setCredits(lectureDetails.getCredits());
-//
-//            return ResponseEntity.ok(lectureRepository.save(updatedLecture));
-//        } else {
-//            return ResponseEntity.notFound().build();
-//        }
-//    }
-//
-//    @Operation(summary = "강의 삭제", description = "특정 Lecture를 삭제합니다.")
-//    @ApiResponses(value = {
-//            @ApiResponse(responseCode = "200", description = "강의 삭제 성공"),
-//            @ApiResponse(responseCode = "404", description = "강의를 찾을 수 없음")
-//    })
-//    @DeleteMapping("/{id}")
-//    public ResponseEntity<Void> deleteLecture(@PathVariable String id) {
-//        if (lectureRepository.existsById(id)) {
-//            lectureRepository.deleteById(id);
-//            return ResponseEntity.ok().build();
-//        } else {
-//            return ResponseEntity.notFound().build();
-//        }
-//    }
 }
