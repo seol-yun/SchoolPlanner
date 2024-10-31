@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 @Entity
 @Getter
 @Setter
@@ -82,8 +84,14 @@ public class Lecture {
     private String evaluationMethod;  // 평가 방법 (MRKS_EVL_MTHD_NM)
 
 
-    private String rating; // 과목 평점 (0~5)
-    private String difficulty; // 과목 난이도 (0~5)
-    private String learning_amount; // 학습유용도 (0~5)
+    private double ratingTotal=3;         // 총 평점 점수 합계
+    private long ratingCount=1;         // 평점을 매긴 사람 수
+
+    private double difficultyTotal=3;     // 난이도 점수 합계
+    private long difficultyCount=1;     // 난이도를 평가한 사람 수
+
+    private double learningAmountTotal=3; // 학습 유용도 점수 합계
+    private long learningAmountCount=1; // 학습 유용도를 평가한 사람 수
+
 
 }

@@ -43,9 +43,6 @@ public class MemberService {
             // 필요한 필드 업데이트
             existingMember.setPw(member.getPw());
             existingMember.setName(member.getName());
-            existingMember.setEmail(member.getEmail());
-            existingMember.setAddress(member.getAddress());
-            existingMember.setGender(member.getGender());
 
             memberRepository.save(existingMember); // 변경된 회원 정보 저장
             return existingMember; // 업데이트된 회원 반환

@@ -44,8 +44,7 @@ public class AuthController {
     })
     @Transactional
     public ResponseEntity<String> signup(@RequestBody SignupRequest signupRequest) {
-        Member newMember = new Member(signupRequest.getId(), signupRequest.getPw(), signupRequest.getName(),
-                signupRequest.getEmail(), signupRequest.getAddress(), signupRequest.getGender(), signupRequest.getTendency());
+        Member newMember = new Member(signupRequest.getId(), signupRequest.getPw(), signupRequest.getName(), signupRequest.getTendency());
         String result = loginService.signUp(newMember);
         if ("회원가입 성공!".equals(result)) {
             return ResponseEntity.ok(result);

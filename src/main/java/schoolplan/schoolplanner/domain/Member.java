@@ -16,20 +16,14 @@ public class Member {
     private String id;
     private String pw;
     private String name;
-    private String email;
-    private String address;
-    private String gender;
-    private int tendency;
+    private long tendency;
     public Member() {
     }
 
-    public Member(String id, String pw, String name, String email, String address, String gender, int tendency) {
+    public Member(String id, String pw, String name, long tendency) {
         this.id = id;
         this.pw = pw;
         this.name = name;
-        this.email = email;
-        this.address = address;
-        this.gender = gender;
         this.tendency = tendency; //0:안정형, 1:밸런스형, 2:도전형
     }
 

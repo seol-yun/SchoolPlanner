@@ -126,8 +126,7 @@ public class MemberController {
         String token = request.getHeader("Authorization").substring(7);
         String loginId = jwtUtil.extractUsername(token);
 
-        memberService.update(new Member(loginId, updateRequest.getPw(), updateRequest.getName(),
-                updateRequest.getEmail(), updateRequest.getAddress(), updateRequest.getGender(), updateRequest.getTendency()));
+        memberService.update(new Member(loginId, updateRequest.getPw(), updateRequest.getName(), updateRequest.getTendency()));
 
         return ResponseEntity.ok("수정 성공!");
     }

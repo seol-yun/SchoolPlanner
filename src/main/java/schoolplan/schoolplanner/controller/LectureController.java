@@ -15,10 +15,7 @@ import schoolplan.schoolplanner.config.JwtUtil;
 import schoolplan.schoolplanner.domain.Lecture;
 import schoolplan.schoolplanner.domain.LectureEnrollment;
 import schoolplan.schoolplanner.domain.Member;
-import schoolplan.schoolplanner.dto.EnrollmentRequestDto;
-import schoolplan.schoolplanner.dto.LectureEnrollmentDto;
-import schoolplan.schoolplanner.dto.LectureEnrollmentIdRequestDto;
-import schoolplan.schoolplanner.dto.LectureIdRequestDto;
+import schoolplan.schoolplanner.dto.*;
 import schoolplan.schoolplanner.repository.LectureEnrollmentRepository;
 import schoolplan.schoolplanner.repository.LectureRepository;
 import schoolplan.schoolplanner.repository.MemberRepository;
@@ -198,6 +195,59 @@ public class LectureController {
     }
 
 
+    // 평점 업데이트 API
+    @PostMapping("/rating")
+    @Operation(summary = "과목 평점 등록", description = "새로운 평점을 추가하여 평균 평점을 계산합니다.")
+    public ResponseEntity<String> updateRating(@RequestBody RatingUpdateRequestDto ratingRequest) {
+        Optional<Lecture> lectureOpt = lectureRepository.findById(ratingRequest.getLectureId());
+
+        if (!lectureOpt.isPresent()) {
+            return ResponseEntity.status(404).body("해당 강의를 찾을 수 없습니다.");
+        }
+
+        Lecture lecture = lectureOpt.get();
+        lecture.setRatingTotal(lecture.getRatingTotal() + ratingRequest.getRating());
+        lecture.setRatingCount(lecture.getRatingCount() + 1);
+
+        lectureRepository.save(lecture);
+        return ResponseEntity.ok("평점이 성공적으로 업데이트되었습니다.");
+    }
+
+    // 난이도 업데이트 API
+    @PostMapping("/difficulty")
+    @Operation(summary = "과목 난이도 등록", description = "새로운 난이도 점수를 추가하여 평균 난이도를 계산합니다.")
+    public ResponseEntity<String> updateDifficulty(@RequestBody DifficultyUpdateRequestDto difficultyRequest) {
+        Optional<Lecture> lectureOpt = lectureRepository.findById(difficultyRequest.getLectureId());
+
+        if (!lectureOpt.isPresent()) {
+            return ResponseEntity.status(404).body("해당 강의를 찾을 수 없습니다.");
+        }
+
+        Lecture lecture = lectureOpt.get();
+        lecture.setDifficultyTotal(lecture.getDifficultyTotal() + difficultyRequest.getDifficulty());
+        lecture.setDifficultyCount(lecture.getDifficultyCount() + 1);
+
+        lectureRepository.save(lecture);
+        return ResponseEntity.ok("난이도가 성공적으로 업데이트되었습니다.");
+    }
+
+    // 학습 유용도 업데이트 API
+    @PostMapping("/learningAmount")
+    @Operation(summary = "과목 학습 유용도 등록", description = "새로운 학습 유용도 점수를 추가하여 평균 학습 유용도를 계산합니다.")
+    public ResponseEntity<String> updateLearningAmount(@RequestBody LearningAmountUpdateRequestDto learningAmountRequest) {
+        Optional<Lecture> lectureOpt = lectureRepository.findById(learningAmountRequest.getLectureId());
+
+        if (!lectureOpt.isPresent()) {
+            return ResponseEntity.status(404).body("해당 강의를 찾을 수 없습니다.");
+        }
+
+        Lecture lecture = lectureOpt.get();
+        lecture.setLearningAmountTotal(lecture.getLearningAmountTotal() + learningAmountRequest.getLearningAmount());
+        lecture.setLearningAmountCount(lecture.getLearningAmountCount() + 1);
+
+        lectureRepository.save(lecture);
+        return ResponseEntity.ok("학습 유용도가 성공적으로 업데이트되었습니다.");
+    }
 
     /**
      * JWT에서 memberId를 가져오는 메서드
