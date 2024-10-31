@@ -5,7 +5,7 @@
 - 데이터베이스 파일 생성 방법
   ```
   jdbc:h2:~/schoolplanner (최소 한번)
-  ~/jpashop.mv.db 파일 생성 확인
+  ~/schoolplanner.mv.db 파일 생성 확인
   이후 부터는 jdbc:h2:tcp://localhost/~/schoolplanner 이렇게 접속
   ```
 - cmd창에서 H2다운받은 폴더로 이동 -> bin에서 h2.bat명령어 실행
