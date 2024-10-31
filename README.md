@@ -11,3 +11,4 @@
 - cmd창에서 H2다운받은 폴더로 이동 -> bin에서 h2.bat명령어 실행
 - 처음 한번 spring.jpa.hibernate.ddl-auto: create 로 설정 후에는 none으로 설정
   
+- API확인: http://localhost:8080/swagger-ui/index.html
