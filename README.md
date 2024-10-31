@@ -7,6 +7,6 @@
   jdbc:h2:~/schoolplanner (최소 한번)
   ~/jpashop.mv.db` 파일 생성 확인
   이후 부터는 jdbc:h2:tcp://localhost/~/schoolplanner 이렇게 접속
-```
+  ```
 
   
