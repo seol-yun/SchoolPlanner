@@ -60,9 +60,6 @@ public class AuthController {
         private String id;
         private String pw;
         private String name;
-        private String email;
-        private String address;
-        private String gender;
         private int tendency;
     }
 

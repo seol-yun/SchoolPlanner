@@ -37,15 +37,20 @@ public class MemberController {
     private final MemberService memberService;
     private final JwtUtil jwtUtil;
 
-    @GetMapping("/profileImage/{id}")
-    @Operation(summary = "프로필 이미지 가져오기", description = "회원 ID를 입력받아 해당 회원의 프로필 이미지를 반환합니다.")
+    @GetMapping("/profileImage")
+    @Operation(summary = "프로필 이미지 가져오기", description = "JWT에서 회원 ID를 추출하여 해당 회원의 프로필 이미지를 반환합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "이미지 반환", content = @Content(mediaType = "image/jpeg")),
             @ApiResponse(responseCode = "404", description = "이미지 없음")
     })
-    public ResponseEntity<Resource> getProfileImage(
-            @Parameter(description = "회원 ID", required = true) @PathVariable String id) {
-        String imagePath = "C://SchoolImage/" + id + ".jpg";
+    public ResponseEntity<Resource> getProfileImage(@Parameter(hidden = true) HttpServletRequest request) {
+        String memberId = getMemberIdFromJwt(request);
+
+        if (memberId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String imagePath = "C://SchoolImage/" + memberId + ".jpg";
         Resource imageResource = new FileSystemResource(imagePath);
 
         if (imageResource.exists() && imageResource.isReadable()) {
@@ -57,16 +62,23 @@ public class MemberController {
         }
     }
 
+
     @PostMapping("/uploadProfileImage")
-    @Operation(summary = "프로필 이미지 업로드", description = "회원 ID와 이미지를 입력받아 프로필 이미지를 업로드합니다.")
+    @Operation(summary = "프로필 이미지 업로드", description = "JWT에서 회원 ID를 추출하여 프로필 이미지를 업로드합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "이미지 업로드 성공"),
             @ApiResponse(responseCode = "400", description = "이미지 업로드 실패", content = @Content(schema = @Schema(implementation = String.class)))
     })
     public ResponseEntity<String> uploadProfileImage(
-            @Parameter(description = "회원 ID", required = true) @RequestParam("id") String id,
+            @Parameter(hidden = true) HttpServletRequest request,
             @Parameter(description = "프로필 이미지", required = true) @RequestParam("file") MultipartFile file) {
         try {
+            String memberId = getMemberIdFromJwt(request);
+
+            if (memberId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("유효하지 않은 토큰입니다.");
+            }
+
             if (file.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("빈 파일입니다.");
             }
@@ -78,7 +90,7 @@ public class MemberController {
                 Files.createDirectories(directory);
             }
 
-            Path filePath = directory.resolve(id + ".jpg");
+            Path filePath = directory.resolve(memberId + ".jpg");
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             return ResponseEntity.ok("이미지 업로드 성공");
@@ -86,6 +98,7 @@ public class MemberController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("이미지 업로드 실패: " + e.getMessage());
         }
     }
+
 
     @GetMapping("/info")
     @Operation(summary = "회원 정보 조회", description = "현재 로그인된 회원의 정보를 반환합니다.")
@@ -131,14 +144,33 @@ public class MemberController {
         return ResponseEntity.ok("수정 성공!");
     }
 
+    /**
+     * JWT에서 memberId를 가져오는 메서드
+     */
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    /**
+     * HTTP 요청에서 JWT에서 memberId 추출, 검증까지
+     */
+    private String getMemberIdFromJwt(HttpServletRequest request) {
+        String token = extractToken(request);
+        if (token != null && jwtUtil.validateToken(token, jwtUtil.extractUsername(token))) {
+            return jwtUtil.extractUsername(token); // JWT의 subject에서 memberId 추출
+        }
+        return null;
+    }
+
     @Getter
     @Setter
     public static class UpdateRequest {
         private String pw;
-        private String name;
-        private String email;
-        private String address;
-        private String gender;
+        private String name;;
         private int tendency;
     }
 }
