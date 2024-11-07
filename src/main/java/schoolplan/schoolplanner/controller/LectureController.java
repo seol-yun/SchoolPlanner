@@ -255,6 +255,21 @@ public class LectureController {
         return ResponseEntity.ok("학습 유용도가 성공적으로 업데이트되었습니다.");
     }
 
+    @GetMapping("/findAll")
+    @Operation(summary = "모든 강의 조회", description = "모든 강의의 상세 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "모든 강의 조회 성공"),
+            @ApiResponse(responseCode = "500", description = "강의 조회 중 오류 발생")
+    })
+    public ResponseEntity<?> getAllLectures() {
+        try {
+            List<Lecture> lectures = lectureRepository.findAll();
+            return ResponseEntity.ok(lectures); // 모든 강의 리스트 반환
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("강의 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
     /**
      * JWT에서 memberId를 가져오는 메서드
      */
