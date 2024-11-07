@@ -59,40 +59,46 @@ public class LectureController {
     }
 
     @PostMapping("/enrollment")
-    @Operation(summary = "강의 수강신청", description = "현재 로그인된 회원이 강의를 수강신청합니다.(lecture객체만 보내주면 됩니다.)")
+    @Operation(summary = "강의 수강신청", description = "현재 로그인된 회원이 강의를 수강신청합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "강의 수강신청이 성공적으로 완료되었습니다."),
             @ApiResponse(responseCode = "401", description = "인증 실패: 유효하지 않은 토큰"),
-            @ApiResponse(responseCode = "404", description = "회원 정보를 찾을 수 없습니다."),
+            @ApiResponse(responseCode = "404", description = "회원 정보 또는 강의 정보를 찾을 수 없습니다."),
             @ApiResponse(responseCode = "500", description = "수강신청 처리 중 오류 발생")
     })
     public ResponseEntity<String> enrollLecture(
-            @RequestBody LectureEnrollment enrollment, // 요청 본문에서 LectureEnrollment 객체 수신
+            @RequestBody LectureIdRequestDto lectureIdDto, // Only lectureId is received in the request
             HttpServletRequest request) {
         try {
-            String memberId = getMemberIdFromJwt(request); // 현재 로그인한 사용자의 memberId 가져오기
+            String memberId = getMemberIdFromJwt(request); // Get the memberId from JWT
             if (memberId == null) {
-                return ResponseEntity.status(401).body("인증 실패: 유효하지 않은 토큰"); // 인증 실패 처리
+                return ResponseEntity.status(401).body("인증 실패: 유효하지 않은 토큰");
             }
 
-            Optional<Member> memberOpt = memberRepository.findOne(memberId); // memberId로 Member 객체 조회
+            Optional<Member> memberOpt = memberRepository.findOne(memberId); // Fetch Member by memberId
             if (!memberOpt.isPresent()) {
-                return ResponseEntity.status(404).body("회원 정보를 찾을 수 없습니다."); // 회원이 존재하지 않으면 에러 반환
+                return ResponseEntity.status(404).body("회원 정보를 찾을 수 없습니다.");
             }
 
-            // LectureEnrollment 객체에 회원 정보 설정
-            enrollment.setMember(memberOpt.get()); // 현재 로그인한 회원으로 설정
+            Optional<Lecture> lectureOpt = lectureRepository.findById(lectureIdDto.getLectureId()); // Fetch Lecture by lectureId
+            if (!lectureOpt.isPresent()) {
+                return ResponseEntity.status(404).body("강의 정보를 찾을 수 없습니다.");
+            }
 
-            // DB에 LectureEnrollment 저장
-            lectureEnrollmentRepository.save(enrollment);
+            LectureEnrollment enrollment = new LectureEnrollment();
+            enrollment.setMember(memberOpt.get()); // Set the current member
+            enrollment.setLecture(lectureOpt.get()); // Set the lecture
 
-            return ResponseEntity.ok("강의 수강신청이 성공적으로 완료되었습니다."); // 성공 메시지 반환
+            lectureEnrollmentRepository.save(enrollment); // Save the enrollment
+
+            return ResponseEntity.ok("강의 수강신청이 성공적으로 완료되었습니다.");
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("수강신청 처리 중 오류가 발생했습니다: " + e.getMessage()); // 오류 메시지 반환
+            return ResponseEntity.status(500).body("수강신청 처리 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
-    @GetMapping("/findEnrollments")
+
+    @PostMapping("/findEnrollments")
     @Operation(summary = "수강신청 내역 조회", description = "회원 ID와 특정 연도, 학기를 기준으로 수강신청 내역을 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "수강신청 내역 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = LectureEnrollmentDto.class))),
@@ -171,7 +177,7 @@ public class LectureController {
         }
     }
 
-    @GetMapping("/getLectureInfo")
+    @PostMapping("/getLectureInfo")
     @Operation(summary = "강의 정보 조회", description = "강의 ID를 기반으로 해당 강의의 상세 정보를 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "강의 정보 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
