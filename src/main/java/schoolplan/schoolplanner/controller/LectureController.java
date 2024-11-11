@@ -20,9 +20,12 @@ import schoolplan.schoolplanner.repository.LectureEnrollmentRepository;
 import schoolplan.schoolplanner.repository.LectureRepository;
 import schoolplan.schoolplanner.repository.MemberRepository;
 import schoolplan.schoolplanner.service.LectureService;
+import schoolplan.schoolplanner.service.LectureTimeParser;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/lectures")
 @Tag(name = "Lecture Controller", description = "강의 관련")
@@ -255,20 +258,200 @@ public class LectureController {
         return ResponseEntity.ok("학습 유용도가 성공적으로 업데이트되었습니다.");
     }
 
-    @GetMapping("/findAll")
+    @PostMapping("/findAll")
     @Operation(summary = "모든 강의 조회", description = "모든 강의의 상세 정보를 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "모든 강의 조회 성공"),
             @ApiResponse(responseCode = "500", description = "강의 조회 중 오류 발생")
     })
-    public ResponseEntity<?> getAllLectures() {
+    public ResponseEntity<?> getAllLectures(@RequestBody LectureFilterDTO filterDTO) {
         try {
-            List<Lecture> lectures = lectureRepository.findAll();
-            return ResponseEntity.ok(lectures); // 모든 강의 리스트 반환
+            List<Lecture> lectures = lectureRepository.findAll()
+                    .stream()
+                    .filter(lecture ->
+                            (filterDTO.getOpenYear() == null || filterDTO.getOpenYear().equals(lecture.getOpenYear())) &&
+                                    (filterDTO.getSemester() == null || filterDTO.getSemester().equals(lecture.getSemester()))
+                    )
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(lectures); // 필터된 강의 리스트 반환
         } catch (Exception e) {
             return ResponseEntity.status(500).body("강의 조회 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
+
+//    @PostMapping("/recommendOtherLectures")
+//    @Operation(summary = "대체 강의 추천", description = "현재 시간표와 시간이 겹치지 않으면서 ISSUE_DIVISION, openYear, semester이 같은 강의를 추천합니다.")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "추천 강의 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
+//            @ApiResponse(responseCode = "404", description = "해당 강의를 찾을 수 없습니다."),
+//            @ApiResponse(responseCode = "500", description = "추천 강의 조회 중 오류 발생")
+//    })
+//    public ResponseEntity<?> recommendLectures(@RequestBody LectureIdRequestDto lectureIdRequestDto, HttpServletRequest request) {
+//        String lectureId = lectureIdRequestDto.getLectureId();
+//        Optional<Lecture> lectureOpt = lectureRepository.findById(lectureId);
+//
+//        if (!lectureOpt.isPresent()) {
+//            return ResponseEntity.status(404).body("강의를 찾을 수 없습니다.");
+//        }
+//
+//        Lecture selectedLecture = lectureOpt.get();
+//        String selectedIssueDivision = selectedLecture.getIssueDivision();
+//        String selectedOpenYear = selectedLecture.getOpenYear();
+//        String selectedSemester = selectedLecture.getSemester();
+//
+//        // 현재 사용자의 모든 수강 신청 내역 조회
+//        String memberId = getMemberIdFromJwt(request);
+//        List<LectureEnrollment> userEnrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, selectedOpenYear, selectedSemester);
+//        List<LectureTime> enrolledLectureTimes = userEnrollments.stream()
+//                .flatMap(enrollment -> LectureTimeParser.parseLectureTimes(enrollment.getLecture().getScheduleInformation()).stream())
+//                .collect(Collectors.toList());
+//
+//        List<Lecture> allLectures = lectureRepository.findAll();
+//        List<Lecture> recommendedLectures = allLectures.stream()
+//                .filter(lecture -> !lecture.getId().equals(lectureId))
+//                .filter(lecture -> lecture.getIssueDivision().equals(selectedIssueDivision))
+//                .filter(lecture -> lecture.getOpenYear().equals(selectedOpenYear)) // openYear 필터 추가
+//                .filter(lecture -> lecture.getSemester().equals(selectedSemester)) // semester 필터 추가
+//                .filter(lecture -> {
+//                    List<LectureTime> lectureTimes = LectureTimeParser.parseLectureTimes(lecture.getScheduleInformation());
+//                    return isNonConflicting(enrolledLectureTimes, lectureTimes);
+//                })
+//                .collect(Collectors.toList());
+//
+//        return ResponseEntity.ok(recommendedLectures);
+//    }
+//
+//    // 시간 충돌 여부 검사 메소드
+//    private boolean isNonConflicting(List<LectureTime> scheduleTimes, List<LectureTime> otherTimes) {
+//        for (LectureTime scheduleTime : scheduleTimes) {
+//            for (LectureTime otherTime : otherTimes) {
+//                if (scheduleTime.getDay().equals(otherTime.getDay())) {
+//                    if (scheduleTime.getEndTime().isAfter(otherTime.getStartTime()) && otherTime.getEndTime().isAfter(scheduleTime.getStartTime())) {
+//                        return false; // 시간 겹침
+//                    }
+//                }
+//            }
+//        }
+//        return true;
+//    }
+//@PostMapping("/recommendOtherLectures")
+//@Operation(summary = "대체 강의 추천", description = "현재 시간표와 시간이 겹치지 않으면서 ISSUE_DIVISION, openYear, semester이 같은 강의를 추천합니다.")
+//@ApiResponses(value = {
+//        @ApiResponse(responseCode = "200", description = "추천 강의 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
+//        @ApiResponse(responseCode = "404", description = "해당 강의를 찾을 수 없습니다."),
+//        @ApiResponse(responseCode = "500", description = "추천 강의 조회 중 오류 발생"),
+//        @ApiResponse(responseCode = "401", description = "사용자 인증 실패 (memberId가 없음)")
+//})
+//public ResponseEntity<?> recommendLectures(@RequestBody LectureIdRequestDto lectureIdRequestDto, HttpServletRequest request) {
+//    String lectureId = lectureIdRequestDto.getLectureId();
+//    Optional<Lecture> lectureOpt = lectureRepository.findById(lectureId);
+//
+//    if (!lectureOpt.isPresent()) {
+//        return ResponseEntity.status(404).body("강의를 찾을 수 없습니다.");
+//    }
+//
+//    Lecture selectedLecture = lectureOpt.get();
+//    String selectedIssueDivision = selectedLecture.getIssueDivision();
+//    String selectedOpenYear = selectedLecture.getOpenYear();
+//    String selectedSemester = selectedLecture.getSemester();
+//
+//    // memberId 추출
+//    String memberId = getMemberIdFromJwt(request);
+//    if (memberId == null || memberId.isEmpty()) {
+//        return ResponseEntity.status(401).body("사용자 인증 실패 (memberId가 없음)");
+//    }
+//
+//    // 현재 사용자의 모든 수강 신청 내역 조회
+//    List<LectureEnrollment> userEnrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, selectedOpenYear, selectedSemester);
+//    List<LectureTime> enrolledLectureTimes = userEnrollments.stream()
+//            .flatMap(enrollment -> LectureTimeParser.parseLectureTimes(enrollment.getLecture().getScheduleInformation()).stream())
+//            .collect(Collectors.toList());
+//
+//    // DB에서 직접 추천 강의 조회 (필터링)
+//    List<Lecture> recommendedLectures = lectureRepository.findLecturesByIssueDivisionAndOpenYearAndSemesterAndNotId(
+//            selectedIssueDivision, selectedOpenYear, selectedSemester, lectureId);
+//
+//    // 시간표 충돌 여부 확인
+//    recommendedLectures = recommendedLectures.stream()
+//            .filter(lecture -> {
+//                List<LectureTime> lectureTimes = LectureTimeParser.parseLectureTimes(lecture.getScheduleInformation());
+//                return isNonConflicting(enrolledLectureTimes, lectureTimes); // 시간표 충돌 여부 확인
+//            })
+//            .collect(Collectors.toList());
+//
+//    return ResponseEntity.ok(recommendedLectures);
+//}
+//
+//    // 시간 충돌 여부 검사 메소드
+//    private boolean isNonConflicting(List<LectureTime> scheduleTimes, List<LectureTime> otherTimes) {
+//        for (LectureTime scheduleTime : scheduleTimes) {
+//            for (LectureTime otherTime : otherTimes) {
+//                if (scheduleTime.getDay().equals(otherTime.getDay())) {
+//                    if (scheduleTime.getEndTime().isAfter(otherTime.getStartTime()) && otherTime.getEndTime().isAfter(scheduleTime.getStartTime())) {
+//                        return false; // 시간 겹침
+//                    }
+//                }
+//            }
+//        }
+//        return true;
+//    }
+
+@PostMapping("/recommendOtherLectures")
+@Operation(summary = "대체 강의 추천", description = "시간이 겹치지 않으면서 ISSUE_DIVISION, openYear, semester이 같은 강의를 추천합니다.")
+@ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "추천 강의 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
+        @ApiResponse(responseCode = "404", description = "해당 강의를 찾을 수 없습니다."),
+        @ApiResponse(responseCode = "500", description = "추천 강의 조회 중 오류 발생")
+})
+@Transactional
+public ResponseEntity<?> recommendLectures(@RequestBody LectureIdRequestDto lectureIdRequestDto, HttpServletRequest request) {
+    String lectureId = lectureIdRequestDto.getLectureId();
+    Optional<Lecture> lectureOpt = lectureRepository.findById(lectureId);
+
+    if (!lectureOpt.isPresent()) {
+        return ResponseEntity.status(404).body("강의를 찾을 수 없습니다.");
+    }
+
+    Lecture selectedLecture = lectureOpt.get();
+    String selectedIssueDivision = selectedLecture.getIssueDivision();
+    String selectedOpenYear = selectedLecture.getOpenYear();
+    String selectedSemester = selectedLecture.getSemester();
+
+    // 현재 사용자의 모든 수강 신청 내역 조회
+    String memberId = getMemberIdFromJwt(request);
+    List<LectureEnrollment> userEnrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, selectedOpenYear, selectedSemester);
+    List<LectureTime> enrolledLectureTimes = userEnrollments.stream()
+            .flatMap(enrollment -> LectureTimeParser.parseLectureTimes(enrollment.getLecture().getScheduleInformation()).stream())
+            .collect(Collectors.toList());
+
+    List<Lecture> allLectures = lectureRepository.findAll();
+    List<Lecture> recommendedLectures = allLectures.stream()
+            .filter(lecture -> !lecture.getId().equals(lectureId))
+            .filter(lecture -> lecture.getIssueDivision().equals(selectedIssueDivision))
+            .filter(lecture -> lecture.getOpenYear().equals(selectedOpenYear)) // openYear 필터 추가
+            .filter(lecture -> lecture.getSemester().equals(selectedSemester)) // semester 필터 추가
+            .filter(lecture -> {
+                List<LectureTime> lectureTimes = LectureTimeParser.parseLectureTimes(lecture.getScheduleInformation());
+                return isNonConflicting(enrolledLectureTimes, lectureTimes);
+            })
+            .collect(Collectors.toList());
+
+    return ResponseEntity.ok(recommendedLectures);
+}
+
+    private boolean isNonConflicting(List<LectureTime> enrolledTimes, List<LectureTime> otherTimes) {
+        for (LectureTime enrolled : enrolledTimes) {
+            for (LectureTime other : otherTimes) {
+                if (enrolled.getDay().equals(other.getDay())) {
+                    if (enrolled.getEndTime().isAfter(other.getStartTime()) && other.getEndTime().isAfter(enrolled.getStartTime())) {
+                        return false; // 시간이 겹치는 경우
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
 
     /**
      * JWT에서 memberId를 가져오는 메서드
