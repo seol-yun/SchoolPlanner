@@ -17,12 +17,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 @Repository
 public interface LectureRepository extends JpaRepository<Lecture, String> {
 
-//    @Query("SELECT l FROM Lecture l WHERE l.issueDivision = :issueDivision " +
-//            "AND l.openYear = :openYear AND l.semester = :semester AND l.id != :lectureId")
-//    List<Lecture> findLecturesByIssueDivisionAndOpenYearAndSemesterAndNotId(
-//            @Param("issueDivision") String issueDivision,
-//            @Param("openYear") String openYear,
-//            @Param("semester") String semester,
-//            @Param("lectureId") String lectureId);
 }
 
