@@ -44,7 +44,34 @@ public class AuthController {
     })
     @Transactional
     public ResponseEntity<String> signup(@RequestBody SignupRequest signupRequest) {
-        Member newMember = new Member(signupRequest.getId(), signupRequest.getPw(), signupRequest.getName(), signupRequest.getTendency());
+        // Determine difficulty and learningAmount based on tendency
+        double difficulty = 0;
+        double learningAmount = 0;
+
+        switch ((int) signupRequest.getTendency()) {
+            case 0: // 안정형
+                difficulty = 2;
+                learningAmount = 2;
+                break;
+            case 1: // 밸런스형
+                difficulty = 3;
+                learningAmount = 3;
+                break;
+            case 2: // 도전형
+                difficulty = 4;
+                learningAmount = 4;
+                break;
+            default:
+                // Default values if invalid tendency
+                difficulty = 3;
+                learningAmount = 3;
+                break;
+        }
+
+        // Create Member with the calculated difficulty and learningAmount
+        Member newMember = new Member(signupRequest.getId(), signupRequest.getPw(), signupRequest.getName(), signupRequest.getDepartment(),
+                signupRequest.getTendency(), difficulty, learningAmount);
+
         String result = loginService.signUp(newMember);
         if ("회원가입 성공!".equals(result)) {
             return ResponseEntity.ok(result);
@@ -53,6 +80,7 @@ public class AuthController {
         }
     }
 
+
     // 회원가입 요청 데이터를 담을 클래스
     @Getter
     @Setter
@@ -60,6 +88,7 @@ public class AuthController {
         private String id;
         private String pw;
         private String name;
+        private String department;
         private int tendency;
     }
 

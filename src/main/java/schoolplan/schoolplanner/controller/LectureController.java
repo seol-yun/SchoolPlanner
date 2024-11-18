@@ -388,7 +388,40 @@ public class LectureController {
 
         return ResponseEntity.ok(recommendedLectures);
     }
+    @PostMapping("/recommendLecture")
+    @Operation(summary = "강의 추천(디폴트)", description = "현재 시간표와 시간이 겹치지 않으면서 주어진 연도와 학기의 강의를 추천합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "추천 강의 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
+            @ApiResponse(responseCode = "404", description = "추천 강의 조회 실패"),
+            @ApiResponse(responseCode = "500", description = "추천 강의 조회 중 오류 발생")
+    })
+    @Transactional
+    public ResponseEntity<?> recommendLecturesByYearAndSemester(@RequestBody YearSemesterRequestDto yearSemesterRequestDto, HttpServletRequest request) {
+        String year = yearSemesterRequestDto.getYear();
+        String semester = yearSemesterRequestDto.getSemester();
 
+        // 현재 사용자의 수강 신청 내역 조회
+        String memberId = getMemberIdFromJwt(request);
+        List<LectureEnrollment> userEnrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, year, semester);
+        List<LectureTime> enrolledLectureTimes = userEnrollments.stream()
+                .flatMap(enrollment -> LectureTimeParser.parseLectureTimes(enrollment.getLecture().getScheduleInformation()).stream())
+                .collect(Collectors.toList());
+
+        // 모든 강의 조회 및 추천 필터 적용
+        List<Lecture> allLectures = lectureRepository.findByOpenYearAndSemester(year, semester); // 연도와 학기에 맞는 강의만 조회
+        List<Lecture> recommendedLectures = allLectures.stream()
+                .filter(lecture -> {
+                    List<LectureTime> lectureTimes = LectureTimeParser.parseLectureTimes(lecture.getScheduleInformation());
+                    return isNonConflicting(enrolledLectureTimes, lectureTimes);
+                })
+                .collect(Collectors.toList());
+
+        if (recommendedLectures.isEmpty()) {
+            return ResponseEntity.status(404).body("추천할 강의가 없습니다.");
+        }
+
+        return ResponseEntity.ok(recommendedLectures);
+    }
     private boolean isNonConflicting(List<LectureTime> enrolledTimes, List<LectureTime> otherTimes) {
         for (LectureTime enrolled : enrolledTimes) {
             for (LectureTime other : otherTimes) {

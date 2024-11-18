@@ -139,7 +139,29 @@ public class MemberController {
         String token = request.getHeader("Authorization").substring(7);
         String loginId = jwtUtil.extractUsername(token);
 
-        memberService.update(new Member(loginId, updateRequest.getPw(), updateRequest.getName(), updateRequest.getTendency()));
+        double difficulty = 0;
+        double learningAmount = 0;
+        switch ((int) updateRequest.getTendency()) {
+            case 0: // 안정형
+                difficulty = 2;
+                learningAmount = 2;
+                break;
+            case 1: // 밸런스형
+                difficulty = 3;
+                learningAmount = 3;
+                break;
+            case 2: // 도전형
+                difficulty = 4;
+                learningAmount = 4;
+                break;
+            default:
+                // Default values if invalid tendency
+                difficulty = 3;
+                learningAmount = 3;
+                break;
+        }
+
+        memberService.update(new Member(loginId, updateRequest.getPw(), updateRequest.getName(), updateRequest.getDepartment(), updateRequest.getTendency(), difficulty, learningAmount));
 
         return ResponseEntity.ok("수정 성공!");
     }
@@ -171,6 +193,9 @@ public class MemberController {
     public static class UpdateRequest {
         private String pw;
         private String name;;
+        private String department;
         private int tendency;
+        private double difficulty;
+        private double learningamount;
     }
 }
