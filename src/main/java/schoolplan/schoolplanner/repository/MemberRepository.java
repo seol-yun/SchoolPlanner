@@ -12,7 +12,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class MemberRepository {
     private final EntityManager em;
-
     /**
      * 멤버 추가
      *
