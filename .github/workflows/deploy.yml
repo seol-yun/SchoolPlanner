@@ -42,10 +42,10 @@ jobs:
         key: ${{ secrets.EC2_KEY }}
         script: |
           # 프로젝트 파일 전송
-          scp -i ${{ secrets.EC2_KEY }} -r ./build/libs/your-app.jar ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/
+          scp -i ${{ secrets.EC2_KEY }} -r ./build/libs/schoolplanner-0.0.1-SNAPSHOT.jar ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/
 
           # EC2에서 실행 중인 이전 프로세스 종료
-          pkill -f your-app.jar || true
+          pkill -f schoolplanner-0.0.1-SNAPSHOT.jar || true
 
           # 새 앱 실행
-          nohup java -jar /home/ubuntu/your-app.jar > /dev/null 2>&1 &
+          nohup java -jar /home/ubuntu/schoolplanner-0.0.1-SNAPSHOT.jar > /dev/null 2>&1 &
