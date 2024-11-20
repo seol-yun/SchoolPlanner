@@ -55,8 +55,13 @@ dependencies {
 	runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-impl', version: '0.11.5'
 	runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-jackson', version: '0.11.5'
 
-	implementation 'org.springframework.boot:spring-boot-starter-jdbc' //오라클
-	implementation 'com.oracle.database.jdbc:ojdbc10:19.8.0.0'
+	//oracle
+//	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+//	implementation 'com.oracle.database.jdbc:ojdbc10:19.8.0.0'
+
+	//mysql
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
 }
 
 tasks.named('test') {

@@ -389,30 +389,51 @@ public class LectureController {
         return ResponseEntity.ok(recommendedLectures);
     }
     @PostMapping("/recommendLecture")
-    @Operation(summary = "강의 추천(디폴트)", description = "현재 시간표와 시간이 겹치지 않으면서 주어진 연도와 학기의 강의를 추천합니다.")
+    @Operation(summary = "강의 추천(유사도 기반)", description = "현재 시간표와 시간이 겹치지 않으면서 주어진 연도와 학기의 강의를 추천합니다. 추천 강의는 해당 멤버의 difficulty와 learningAmount 기준으로 유사한 순으로 정렬됩니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "추천 강의 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
             @ApiResponse(responseCode = "404", description = "추천 강의 조회 실패"),
             @ApiResponse(responseCode = "500", description = "추천 강의 조회 중 오류 발생")
     })
     @Transactional
-    public ResponseEntity<?> recommendLecturesByYearAndSemester(@RequestBody YearSemesterRequestDto yearSemesterRequestDto, HttpServletRequest request) {
+    public ResponseEntity<?> recommendLectures(@RequestBody YearSemesterRequestDto yearSemesterRequestDto, HttpServletRequest request) {
         String year = yearSemesterRequestDto.getYear();
         String semester = yearSemesterRequestDto.getSemester();
 
-        // 현재 사용자의 수강 신청 내역 조회
+        // 현재 사용자의 ID 조회
         String memberId = getMemberIdFromJwt(request);
+
+        // 사용자의 등록된 수강 강의 시간표 조회
         List<LectureEnrollment> userEnrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, year, semester);
         List<LectureTime> enrolledLectureTimes = userEnrollments.stream()
                 .flatMap(enrollment -> LectureTimeParser.parseLectureTimes(enrollment.getLecture().getScheduleInformation()).stream())
                 .collect(Collectors.toList());
 
-        // 모든 강의 조회 및 추천 필터 적용
-        List<Lecture> allLectures = lectureRepository.findByOpenYearAndSemester(year, semester); // 연도와 학기에 맞는 강의만 조회
+        // 사용자의 선호도 정보 조회
+        Optional<Member> memberOpt = memberRepository.findOne(memberId);
+        if (memberOpt.isEmpty()) {
+            return ResponseEntity.status(404).body("멤버를 찾을 수 없습니다.");
+        }
+
+        Member member = memberOpt.get();
+        double memberDifficulty = member.getDifficulty();
+        double memberLearningAmount = member.getLearningAmount();
+
+        // 연도와 학기에 맞는 모든 강의 조회
+        List<Lecture> allLectures = lectureRepository.findByOpenYearAndSemester(year, semester);
+
+        // 추천 강의 필터링 및 정렬
         List<Lecture> recommendedLectures = allLectures.stream()
                 .filter(lecture -> {
+                    // 시간이 겹치지 않는 강의만 필터링
                     List<LectureTime> lectureTimes = LectureTimeParser.parseLectureTimes(lecture.getScheduleInformation());
                     return isNonConflicting(enrolledLectureTimes, lectureTimes);
+                })
+                .sorted((lecture1, lecture2) -> {
+                    // 유사도를 기준으로 정렬
+                    double similarity1 = calculateSimilarity(memberDifficulty, memberLearningAmount, lecture1);
+                    double similarity2 = calculateSimilarity(memberDifficulty, memberLearningAmount, lecture2);
+                    return Double.compare(similarity1, similarity2);
                 })
                 .collect(Collectors.toList());
 
@@ -422,6 +443,19 @@ public class LectureController {
 
         return ResponseEntity.ok(recommendedLectures);
     }
+
+    // 유사도 계산 메서드
+    private double calculateSimilarity(double memberDifficulty, double memberLearningAmount, Lecture lecture) {
+        double lectureDifficultyAvg = lecture.getDifficultyTotal() / lecture.getDifficultyCount();
+        double lectureLearningAmountAvg = lecture.getLearningAmountTotal() / lecture.getLearningAmountCount();
+
+        // 절대값의 합으로 유사도 계산
+        double difficultyDifference = Math.abs(memberDifficulty - lectureDifficultyAvg);
+        double learningAmountDifference = Math.abs(memberLearningAmount - lectureLearningAmountAvg);
+        return difficultyDifference + learningAmountDifference;
+    }
+
+    // 시간 충돌 확인 메서드 (기존 코드 재사용)
     private boolean isNonConflicting(List<LectureTime> enrolledTimes, List<LectureTime> otherTimes) {
         for (LectureTime enrolled : enrolledTimes) {
             for (LectureTime other : otherTimes) {
@@ -434,6 +468,7 @@ public class LectureController {
         }
         return true;
     }
+
 
 
     /**

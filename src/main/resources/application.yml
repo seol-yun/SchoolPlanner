@@ -9,20 +9,21 @@
 
 spring:
   datasource:
-    url: jdbc:h2:tcp://127.0.0.1/~/schoolplanner;
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: jdbc:mysql://localhost:3306/schoolplanner
+    username: yunhwan
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
-#      ddl-auto: create
-      ddl-auto: none
+      ddl-auto: create
+#      ddl-auto: none
     properties:
       hibernate:
         #        show_sql: true
         format_sql: true
         highlight_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect #mysql
     open-in-view: false
 
   output:
