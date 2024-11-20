@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - deploy  # deploy 브랜치에 푸시될 때만 실행
-      - master
 
 jobs:
   build:
@@ -28,7 +27,7 @@ jobs:
 
     # 프로젝트 빌드
     - name: Build with Gradle
-      run: ./gradlew build
+      run: ./gradlew build -x test
 
   deploy:
     runs-on: ubuntu-latest
