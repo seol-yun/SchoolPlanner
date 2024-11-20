@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - deploy  # deploy 브랜치에 푸시될 때만 실행
+      - master
 
 jobs:
   build:
