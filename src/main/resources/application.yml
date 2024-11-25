@@ -16,14 +16,14 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create
-#      ddl-auto: none
+#      ddl-auto: create
+      ddl-auto: none
     properties:
       hibernate:
         #        show_sql: true
         format_sql: true
         highlight_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect #mysql
+#        dialect: org.hibernate.dialect.MySQLDialect #mysql
     open-in-view: false
 
   output:
