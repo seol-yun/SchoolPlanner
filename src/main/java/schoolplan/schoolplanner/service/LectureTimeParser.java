@@ -18,7 +18,15 @@ public class LectureTimeParser {
         while (matcher.find()) {
             String day = matcher.group(1);
             LocalTime startTime = LocalTime.of(Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3)));
-            LocalTime endTime = LocalTime.of(Integer.parseInt(matcher.group(4)), Integer.parseInt(matcher.group(5)));
+
+            // 종료 시간이 24:00인 경우 00:00으로 변환
+            int endHour = Integer.parseInt(matcher.group(4));
+            int endMinute = Integer.parseInt(matcher.group(5));
+            if (endHour == 24) {
+                endHour = 0;  // 24:00을 00:00으로 변환
+            }
+            LocalTime endTime = LocalTime.of(endHour, endMinute);
+
             times.add(new LectureTime(day, startTime, endTime));
         }
 
