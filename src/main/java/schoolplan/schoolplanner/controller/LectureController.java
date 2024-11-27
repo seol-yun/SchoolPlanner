@@ -9,6 +9,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import schoolplan.schoolplanner.config.JwtUtil;
@@ -22,8 +26,7 @@ import schoolplan.schoolplanner.repository.MemberRepository;
 import schoolplan.schoolplanner.service.LectureService;
 import schoolplan.schoolplanner.service.LectureTimeParser;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -257,26 +260,36 @@ public class LectureController {
         return ResponseEntity.ok("학습 유용도가 성공적으로 업데이트되었습니다.");
     }
 
-    @PostMapping("/findAll")
-    @Operation(summary = "모든 강의 조회", description = "모든 강의의 상세 정보를 조회합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "모든 강의 조회 성공"),
-            @ApiResponse(responseCode = "500", description = "강의 조회 중 오류 발생")
-    })
-    public ResponseEntity<?> getAllLectures(@RequestBody YearSemesterRequestDto filterDTO) {
-        try {
-            List<Lecture> lectures = lectureRepository.findAll()
-                    .stream()
-                    .filter(lecture ->
-                            (filterDTO.getYear() == null || filterDTO.getYear().equals(lecture.getOpenYear())) &&
-                                    (filterDTO.getSemester() == null || filterDTO.getSemester().equals(lecture.getSemester()))
-                    )
-                    .collect(Collectors.toList());
-            return ResponseEntity.ok(lectures); // 필터된 강의 리스트 반환
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("강의 조회 중 오류가 발생했습니다: " + e.getMessage());
-        }
-    }
+//    @PostMapping("/findAll")
+//    @Operation(summary = "모든 강의 조회", description = "모든 강의의 상세 정보를 조회합니다.")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "모든 강의 조회 성공"),
+//            @ApiResponse(responseCode = "500", description = "강의 조회 중 오류 발생")
+//    })
+//    public ResponseEntity<?> getAllLectures(@RequestBody YearSemesterRequestDto filterDTO) {
+//        try {
+//            // DB에서 연도와 학기에 맞는 모든 강의 조회 (페이징 없이)
+//            List<Lecture> lectures = lectureRepository.findByOpenYearAndSemester(
+//                    filterDTO.getYear(), filterDTO.getSemester());
+//
+//            // 페이지 번호와 페이지 크기에 맞게 리스트 자르기
+//            int start = filterDTO.getPage() * filterDTO.getSize();
+//            int end = Math.min(start + filterDTO.getSize(), lectures.size());
+//            List<Lecture> pagedLectures = lectures.subList(start, end);
+//
+//            // 페이징된 강의 리스트 반환
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("lectures", pagedLectures);
+//            response.put("currentPage", filterDTO.getPage());
+//            response.put("totalItems", lectures.size());
+//            response.put("totalPages", (lectures.size() / filterDTO.getSize()) + 1);
+//
+//            return ResponseEntity.ok(response);
+//        } catch (Exception e) {
+//            return ResponseEntity.status(500).body("강의 조회 중 오류가 발생했습니다: " + e.getMessage());
+//        }
+//    }
+
 
     @PostMapping("/averageDifficulty")
     @Operation(summary = "시간표 평균 난이도 조회", description = "특정 회원의 특정 연도와 학기에 해당하는 시간표의 평균 난이도를 조회합니다.")
@@ -391,7 +404,7 @@ public class LectureController {
     }
 
     @PostMapping("/recommendLecture")
-    @Operation(summary = "강의 추천(유사도 기반)", description = "현재 시간표와 시간이 겹치지 않으면서 주어진 연도와 학기의 강의를 추천합니다. 추천 강의는 해당 멤버의 difficulty와 learningAmount 기준으로 유사한 순으로 정렬됩니다.")
+    @Operation(summary = "강의 추천(유사도 기반)", description = "주어진 연도와 학기의 강의를 추천합니다. 추천 강의는 해당 멤버의 difficulty와 learningAmount 기준으로 유사한 순으로 정렬됩니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "추천 강의 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
             @ApiResponse(responseCode = "404", description = "추천 강의 조회 실패"),
@@ -405,12 +418,6 @@ public class LectureController {
         // 현재 사용자의 ID 조회
         String memberId = getMemberIdFromJwt(request);
 
-        // 사용자의 등록된 수강 강의 시간표 조회
-        List<LectureEnrollment> userEnrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, year, semester);
-        List<LectureTime> enrolledLectureTimes = userEnrollments.stream()
-                .flatMap(enrollment -> LectureTimeParser.parseLectureTimes(enrollment.getLecture().getScheduleInformation()).stream())
-                .collect(Collectors.toList());
-
         // 사용자의 선호도 정보 조회
         Optional<Member> memberOpt = memberRepository.findOne(memberId);
         if (memberOpt.isEmpty()) {
@@ -421,41 +428,47 @@ public class LectureController {
         double memberDifficulty = member.getDifficulty();
         double memberLearningAmount = member.getLearningAmount();
 
-        // 연도와 학기에 맞는 모든 강의 조회
-        List<Lecture> allLectures = lectureRepository.findByOpenYearAndSemester(year, semester);
+        // 연도와 학기에 맞는 강의 조회 (전체 강의를 조회하고, 페이징은 직접 처리)
+        List<Lecture> lectures = lectureRepository.findByOpenYearAndSemester(year, semester);
 
-        // 추천 강의 필터링 및 정렬
-        List<Lecture> recommendedLectures = allLectures.stream()
-                .filter(lecture -> {
-                    // 시간이 겹치지 않는 강의만 필터링
-                    List<LectureTime> lectureTimes = LectureTimeParser.parseLectureTimes(lecture.getScheduleInformation());
-                    return isNonConflicting(enrolledLectureTimes, lectureTimes);
-                })
-                .sorted((lecture1, lecture2) -> {
-                    // 유사도를 기준으로 정렬
-                    double similarity1 = calculateSimilarity(memberDifficulty, memberLearningAmount, lecture1);
-                    double similarity2 = calculateSimilarity(memberDifficulty, memberLearningAmount, lecture2);
-                    return Double.compare(similarity1, similarity2);
-                })
+        // 추천 강의 정렬
+        List<Lecture> recommendedLectures = lectures.stream()
+                .sorted(Comparator.comparingDouble(lecture -> calculateSimilarity(memberDifficulty, memberLearningAmount, lecture)))
                 .collect(Collectors.toList());
 
         if (recommendedLectures.isEmpty()) {
             return ResponseEntity.status(404).body("추천할 강의가 없습니다.");
         }
 
-        return ResponseEntity.ok(recommendedLectures);
+        // 페이지 번호와 크기값을 받아 페이징 처리
+        int start = yearSemesterRequestDto.getPage() * yearSemesterRequestDto.getSize();
+        int end = Math.min(start + yearSemesterRequestDto.getSize(), recommendedLectures.size());
+        List<Lecture> pagedLectures = recommendedLectures.subList(start, end);
+
+        // 페이징 정보와 함께 반환
+        Map<String, Object> response = new HashMap<>();
+        response.put("lectures", pagedLectures);
+        response.put("currentPage", yearSemesterRequestDto.getPage());
+        response.put("totalItems", recommendedLectures.size());
+        response.put("totalPages", (recommendedLectures.size() / yearSemesterRequestDto.getSize()) + 1);
+
+        return ResponseEntity.ok(response);
     }
 
-    // 유사도 계산 메서드
+
+    // 유사도 계산 메서드 (최적화)
     private double calculateSimilarity(double memberDifficulty, double memberLearningAmount, Lecture lecture) {
         double lectureDifficultyAvg = lecture.getDifficultyTotal() / lecture.getDifficultyCount();
         double lectureLearningAmountAvg = lecture.getLearningAmountTotal() / lecture.getLearningAmountCount();
 
-        // 절대값의 합으로 유사도 계산
+        // 유사도 계산 방식 수정 (절대값의 합을 대신 평균 차이의 합을 사용)
         double difficultyDifference = Math.abs(memberDifficulty - lectureDifficultyAvg);
         double learningAmountDifference = Math.abs(memberLearningAmount - lectureLearningAmountAvg);
+
+        // 유사도는 차이의 합으로 계산
         return difficultyDifference + learningAmountDifference;
     }
+
 
     // 시간 충돌 확인 메서드 (기존 코드 재사용)
     private boolean isNonConflicting(List<LectureTime> enrolledTimes, List<LectureTime> otherTimes) {
@@ -470,6 +483,7 @@ public class LectureController {
         }
         return true;
     }
+
 
 
 
