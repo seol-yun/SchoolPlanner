@@ -74,8 +74,9 @@ public class Lecture {
     @Column(name = "professor_information")
     private String professorInformation;  // 교수 정보 (PROF_INFO)
 
-    @Column(name = "schedule_information")
+    @Column(name = "schedule_information", columnDefinition = "TEXT")
     private String scheduleInformation;  // 시간표, 강의실 정보 (TMTBL_INFO)
+
 
     @Column(name = "class_type")
     private String classType;  // 수업 유형 (LSN_TYPE_NM)

@@ -51,10 +51,9 @@ public class LectureController {
     @PostMapping("/fetch")
     public ResponseEntity<String> fetchLecturesFromApi(
             @RequestParam String year,
-            @RequestParam String semester,
-            @RequestParam String page) {
+            @RequestParam String semester) {
         try {
-            lectureService.createLecturesFromApi(year, semester, page);
+            lectureService.createLecturesFromApi(year, semester);
             return ResponseEntity.ok("강의 정보가 성공적으로 업데이트되었습니다.");
         } catch (Exception e) {
             return ResponseEntity.status(500).body("강의 정보를 가져오는 데 실패했습니다.");
@@ -347,7 +346,7 @@ public class LectureController {
 
 
     @PostMapping("/recommendOtherLectures")
-    @Operation(summary = "대체 강의 추천", description = "시간표와 시간이 겹치지 않으면서 ISSUE_DIVISION, openYear, semester이 같은 강의를 추천합니다.")
+    @Operation(summary = "대체 강의 추천", description = "시간표와 시간이 겹치지 않으면서 ISSUE_DIVISION, openYear, semester, DEPARTMENT가 같은 강의를 추천합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "추천 강의 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
             @ApiResponse(responseCode = "404", description = "해당 강의를 찾을 수 없습니다."),
@@ -366,6 +365,7 @@ public class LectureController {
         String selectedIssueDivision = selectedLecture.getIssueDivision();
         String selectedOpenYear = selectedLecture.getOpenYear();
         String selectedSemester = selectedLecture.getSemester();
+        String selectedDepartment = selectedLecture.getDepartment(); // DEPARTMENT 값 가져오기
 
         // 현재 사용자의 모든 수강 신청 내역 조회
         String memberId = getMemberIdFromJwt(request);
@@ -378,8 +378,9 @@ public class LectureController {
         List<Lecture> recommendedLectures = allLectures.stream()
                 .filter(lecture -> !lecture.getId().equals(lectureId))
                 .filter(lecture -> lecture.getIssueDivision().equals(selectedIssueDivision))
-                .filter(lecture -> lecture.getOpenYear().equals(selectedOpenYear)) // openYear 필터 추가
-                .filter(lecture -> lecture.getSemester().equals(selectedSemester)) // semester 필터 추가
+                .filter(lecture -> lecture.getOpenYear().equals(selectedOpenYear)) // openYear 필터
+                .filter(lecture -> lecture.getSemester().equals(selectedSemester)) // semester 필터
+                .filter(lecture -> lecture.getDepartment().equals(selectedDepartment)) // DEPARTMENT 필터 추가
                 .filter(lecture -> {
                     List<LectureTime> lectureTimes = LectureTimeParser.parseLectureTimes(lecture.getScheduleInformation());
                     return isNonConflicting(enrolledLectureTimes, lectureTimes);
@@ -388,6 +389,7 @@ public class LectureController {
 
         return ResponseEntity.ok(recommendedLectures);
     }
+
     @PostMapping("/recommendLecture")
     @Operation(summary = "강의 추천(유사도 기반)", description = "현재 시간표와 시간이 겹치지 않으면서 주어진 연도와 학기의 강의를 추천합니다. 추천 강의는 해당 멤버의 difficulty와 learningAmount 기준으로 유사한 순으로 정렬됩니다.")
     @ApiResponses(value = {
