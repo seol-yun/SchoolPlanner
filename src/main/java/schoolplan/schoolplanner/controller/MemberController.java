@@ -195,7 +195,7 @@ public class MemberController {
         private String name;;
         private String department;
         private int tendency;
-        private double difficulty;
-        private double learningamount;
+//        private double difficulty;
+//        private double learningamount;
     }
 }

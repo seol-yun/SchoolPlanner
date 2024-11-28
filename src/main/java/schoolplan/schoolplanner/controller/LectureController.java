@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -67,40 +68,78 @@ public class LectureController {
     @Operation(summary = "강의 수강신청", description = "현재 로그인된 회원이 강의를 수강신청합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "강의 수강신청이 성공적으로 완료되었습니다."),
+            @ApiResponse(responseCode = "400", description = "시간표 겹침 또는 이미 신청한 강의입니다."),
             @ApiResponse(responseCode = "401", description = "인증 실패: 유효하지 않은 토큰"),
             @ApiResponse(responseCode = "404", description = "회원 정보 또는 강의 정보를 찾을 수 없습니다."),
             @ApiResponse(responseCode = "500", description = "수강신청 처리 중 오류 발생")
     })
+    @Transactional
     public ResponseEntity<String> enrollLecture(
-            @RequestBody LectureIdRequestDto lectureIdDto, // Only lectureId is received in the request
-            HttpServletRequest request) {
+            @RequestBody LectureIdRequestDto lectureIdDto, HttpServletRequest request) {
         try {
-            String memberId = getMemberIdFromJwt(request); // Get the memberId from JWT
+            String memberId = getMemberIdFromJwt(request); // JWT에서 memberId 추출
             if (memberId == null) {
                 return ResponseEntity.status(401).body("인증 실패: 유효하지 않은 토큰");
             }
 
-            Optional<Member> memberOpt = memberRepository.findOne(memberId); // Fetch Member by memberId
+            Optional<Member> memberOpt = memberRepository.findOne(memberId); // 회원 정보 조회
             if (!memberOpt.isPresent()) {
                 return ResponseEntity.status(404).body("회원 정보를 찾을 수 없습니다.");
             }
 
-            Optional<Lecture> lectureOpt = lectureRepository.findById(lectureIdDto.getLectureId()); // Fetch Lecture by lectureId
+            Optional<Lecture> lectureOpt = lectureRepository.findById(lectureIdDto.getLectureId()); // 강의 정보 조회
             if (!lectureOpt.isPresent()) {
                 return ResponseEntity.status(404).body("강의 정보를 찾을 수 없습니다.");
             }
 
-            LectureEnrollment enrollment = new LectureEnrollment();
-            enrollment.setMember(memberOpt.get()); // Set the current member
-            enrollment.setLecture(lectureOpt.get()); // Set the lecture
+            // 해당 강의 정보 가져오기
+            Lecture newLecture = lectureOpt.get();
+            String selectedOpenYear = newLecture.getOpenYear();
+            String selectedSemester = newLecture.getSemester();
 
-            lectureEnrollmentRepository.save(enrollment); // Save the enrollment
+            // 이미 수강한 강의가 있는지 확인
+            List<LectureEnrollment> existingEnrollments = lectureEnrollmentRepository
+                    .findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, selectedOpenYear, selectedSemester);
+
+            // 중복 신청 여부 확인
+            boolean alreadyEnrolled = existingEnrollments.stream()
+                    .anyMatch(enrollment -> enrollment.getLecture().getId().equals(lectureIdDto.getLectureId()));
+
+            if (alreadyEnrolled) {
+                return ResponseEntity.status(400).body("이미 신청한 강의입니다.");
+            }
+
+            // 현재 사용자의 수강 신청 내역 조회 (openYear와 semester 기준)
+            List<LectureEnrollment> userEnrollments = lectureEnrollmentRepository
+                    .findByMember_IdAndLecture_OpenYearAndLecture_Semester(memberId, selectedOpenYear, selectedSemester);
+
+            // 이미 수강한 강의들의 시간표 가져오기
+            List<LectureTime> enrolledLectureTimes = userEnrollments.stream()
+                    .flatMap(enrollment -> LectureTimeParser.parseLectureTimes(enrollment.getLecture().getScheduleInformation()).stream())
+                    .collect(Collectors.toList());
+
+            // 신규 강의 시간표 가져오기
+            List<LectureTime> newLectureTimes = LectureTimeParser.parseLectureTimes(newLecture.getScheduleInformation());
+
+            // 시간표 중복 체크
+            if (!isNonConflicting(enrolledLectureTimes, newLectureTimes)) {
+                return ResponseEntity.status(400).body("수강신청이 불가능합니다. 시간표가 겹칩니다.");
+            }
+
+            // 수강신청 진행
+            LectureEnrollment enrollment = new LectureEnrollment();
+            enrollment.setMember(memberOpt.get());
+            enrollment.setLecture(newLecture);
+            lectureEnrollmentRepository.save(enrollment);
 
             return ResponseEntity.ok("강의 수강신청이 성공적으로 완료되었습니다.");
         } catch (Exception e) {
             return ResponseEntity.status(500).body("수강신청 처리 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
+
+
+
 
 
     @PostMapping("/findEnrollments")
@@ -455,6 +494,80 @@ public class LectureController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(
+            summary = "강의 성적 수정",
+            description = "특정 수강신청 ID에 대한 강의 성적을 수정합니다."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "성적 수정 성공"),
+            @ApiResponse(responseCode = "400", description = "유효하지 않은 입력 값"),
+            @ApiResponse(responseCode = "404", description = "해당 ID에 대한 수강신청 정보 없음"),
+            @ApiResponse(responseCode = "500", description = "내부 서버 오류")
+    })
+    @PostMapping("/update-grade")
+    public ResponseEntity<String> updateGrade(@RequestBody UpdateGradeRequestDto requestDto) {
+        try {
+            // ID로 LectureEnrollment 조회
+            LectureEnrollment enrollment = lectureEnrollmentRepository.findById(requestDto.getEnrollmentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid enrollment ID: " + requestDto.getEnrollmentId()));
+
+            // 성적 수정
+            enrollment.setGrade(requestDto.getGrade());
+            lectureEnrollmentRepository.save(enrollment);
+
+            return ResponseEntity.ok("성적이 성공적으로 수정되었습니다.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("성적 수정에 실패하였습니다.");
+        }
+    }
+
+
+    /**
+     * 사용자가 등록한 강의들의 평균 학점을 계산
+     */
+    @Operation(
+            summary = "사용자가 등록한 강의들의 평균 학점 계산",
+            description = "JWT에서 memberId를 추출하고 해당 사용자가 등록한 강의들의 평균 학점을 계산하여 반환합니다."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "평균 학점 계산 성공"),
+            @ApiResponse(responseCode = "404", description = "등록된 강의가 없음"),
+            @ApiResponse(responseCode = "500", description = "내부 서버 오류")
+    })
+    @PostMapping("/average-grade")
+    public ResponseEntity<String> getAverageGrade(HttpServletRequest request,
+                                                  @RequestParam String year,
+                                                  @RequestParam String semester) {
+        try {
+            // JWT에서 memberId 추출
+            String memberId = getMemberIdFromJwt(request);
+            if (memberId == null) {
+                return ResponseEntity.status(401).body("JWT 토큰이 유효하지 않거나 memberId를 추출할 수 없습니다.");
+            }
+
+            // memberId에 해당하는 수강신청 목록 조회
+            List<LectureEnrollment> enrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(
+                    memberId, year, semester);
+
+            if (enrollments.isEmpty()) {
+                return ResponseEntity.status(404).body("해당 학기 및 연도에 등록된 강의가 없습니다.");
+            }
+
+            // 평균 학점 계산
+            double totalGrade = 0;
+            for (LectureEnrollment enrollment : enrollments) {
+                totalGrade += enrollment.getGrade();
+            }
+            double averageGrade = totalGrade / enrollments.size();
+
+            // 결과 반환
+            return ResponseEntity.ok("사용자가 등록한 강의들의 평균 학점: " + averageGrade);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("내부 서버 오류: " + e.getMessage());
+        }
+    }
 
     // 유사도 계산 메서드 (최적화)
     private double calculateSimilarity(double memberDifficulty, double memberLearningAmount, Lecture lecture) {

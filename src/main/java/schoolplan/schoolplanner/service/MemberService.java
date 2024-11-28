@@ -43,6 +43,10 @@ public class MemberService {
             // 필요한 필드 업데이트
             existingMember.setPw(member.getPw());
             existingMember.setName(member.getName());
+            existingMember.setDepartment(member.getDepartment());
+            existingMember.setTendency(member.getTendency());
+            existingMember.setDifficulty(member.getDifficulty());
+            existingMember.setLearningAmount(member.getLearningAmount());
 
             memberRepository.save(existingMember); // 변경된 회원 정보 저장
             return existingMember; // 업데이트된 회원 반환
