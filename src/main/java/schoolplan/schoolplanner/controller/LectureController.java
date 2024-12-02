@@ -244,6 +244,30 @@ public class LectureController {
         }
     }
 
+    @PostMapping("/getLectureInfoByNameContaining")
+    @Operation(summary = "강의 정보 조회(포함된 이름으로)", description = "강의 이름에 특정 글자가 포함된 강의들을 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "강의 정보 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Lecture.class))),
+            @ApiResponse(responseCode = "404", description = "해당 이름의 강의를 찾을 수 없습니다."),
+            @ApiResponse(responseCode = "500", description = "강의 정보 조회 중 오류 발생")
+    })
+    public ResponseEntity<?> getLectureInfoByNameContaining(
+            @RequestBody LectureNameDto lectureNameRequestDto) {
+        try {
+            String subjectName = lectureNameRequestDto.getLectureName(); // JSON에서 subjectName 추출
+            List<Lecture> lectures = lectureRepository.findBySubjectNameContaining(subjectName); // 포함된 이름으로 강의 검색
+
+            if (lectures.isEmpty()) {
+                return ResponseEntity.status(404).body("해당 이름의 강의를 찾을 수 없습니다.");
+            }
+
+            return ResponseEntity.ok(lectures); // 조회된 강의 정보 리스트 반환
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("강의 정보 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+
 
     // 평점 업데이트 API
     @PostMapping("/rating")

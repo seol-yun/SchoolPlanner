@@ -20,4 +20,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface LectureRepository extends JpaRepository<Lecture, String> {
     @Query("SELECT l FROM Lecture l WHERE l.openYear = :openYear AND l.semester = :semester")
     List<Lecture> findByOpenYearAndSemester(@Param("openYear") String openYear, @Param("semester") String semester);
+
+    List<Lecture> findBySubjectNameContaining(String subjectName);
 }
