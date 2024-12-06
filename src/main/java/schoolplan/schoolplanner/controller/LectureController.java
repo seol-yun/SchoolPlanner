@@ -549,9 +549,6 @@ public class LectureController {
     }
 
 
-    /**
-     * 사용자가 등록한 강의들의 평균 학점을 계산
-     */
     @Operation(
             summary = "사용자가 등록한 강의들의 평균 학점 계산",
             description = "JWT에서 memberId를 추출하고 해당 사용자가 등록한 강의들의 평균 학점을 계산하여 반환합니다."
@@ -586,8 +583,11 @@ public class LectureController {
             }
             double averageGrade = totalGrade / enrollments.size();
 
+            // 소숫점 2자리까지 반올림하여 반환
+            String formattedAverageGrade = String.format("%.2f", averageGrade);
+
             // 결과 반환
-            return ResponseEntity.ok("사용자가 등록한 강의들의 평균 학점: " + averageGrade);
+            return ResponseEntity.ok(formattedAverageGrade);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("내부 서버 오류: " + e.getMessage());
         }
