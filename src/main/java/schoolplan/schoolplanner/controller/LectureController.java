@@ -563,8 +563,7 @@ public class LectureController {
     })
     @PostMapping("/average-grade")
     public ResponseEntity<String> getAverageGrade(HttpServletRequest request,
-                                                  @RequestParam String year,
-                                                  @RequestParam String semester) {
+                                                  @RequestBody YearSemesterRequestDto requestDto) {
         try {
             // JWT에서 memberId 추출
             String memberId = getMemberIdFromJwt(request);
@@ -574,7 +573,7 @@ public class LectureController {
 
             // memberId에 해당하는 수강신청 목록 조회
             List<LectureEnrollment> enrollments = lectureEnrollmentRepository.findByMember_IdAndLecture_OpenYearAndLecture_Semester(
-                    memberId, year, semester);
+                    memberId, requestDto.getYear(), requestDto.getSemester());
 
             if (enrollments.isEmpty()) {
                 return ResponseEntity.status(404).body("해당 학기 및 연도에 등록된 강의가 없습니다.");
@@ -593,6 +592,7 @@ public class LectureController {
             return ResponseEntity.status(500).body("내부 서버 오류: " + e.getMessage());
         }
     }
+
 
     // 유사도 계산 메서드 (최적화)
     private double calculateSimilarity(double memberDifficulty, double memberLearningAmount, Lecture lecture) {
