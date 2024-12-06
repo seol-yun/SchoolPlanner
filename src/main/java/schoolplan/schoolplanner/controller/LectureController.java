@@ -175,7 +175,8 @@ public class LectureController {
                             enrollment.getMember().getId(),
                             enrollment.getLecture().getSubjectName(),
                             enrollment.getLecture().getOpenYear(),
-                            enrollment.getLecture().getSemester()
+                            enrollment.getLecture().getSemester(),
+                            enrollment.getLecture().getScheduleInformation()
                     ))
                     .toList();
 
